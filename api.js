@@ -1,13 +1,13 @@
 /**
- * Capa API para Forja PWA
- * Permite la conexión a un backend real (Deno) por fetch o activa el motor local simulado (Modo Demo).
+ * FORJA PWA - CAPA API Y MOTOR DEMO CON ONBOARDING GUIADO (v2.0.0)
+ * Maneja conexión con backend Deno o flujo local inteligente con entrevista de briefing.
  */
 
-const STORAGE_KEY_CONFIG = 'forja_api_config';
+const STORAGE_KEY_CONFIG = 'forja_api_config_v2';
 
 const defaultConfig = {
-  backendUrl: '', // URL configurable en Ajustes (ej. https://api.forja.dev/v1)
-  demoMode: true,  // Por defecto activo en esta 1ra versión
+  backendUrl: '', // Configurable en Ajustes (ej. https://api.forja.dev/v1)
+  demoMode: true,
   agentName: 'Forja'
 };
 
@@ -40,15 +40,7 @@ window.ForjaAPI = {
     saveConfig(currentConfig);
   },
 
-  /**
-   * Envía un mensaje al agente (backend Deno o motor simulado)
-   * @param {string} userMessage - Mensaje enviado por el usuario
-   * @param {Array} history - Historial de la conversación
-   * @param {Object} extraContext - Contexto adicional (ej: opción elegida de chips o aprobación)
-   * @returns {Promise<Object>} Respuesta del agente estructurada en bloques JSON
-   */
   async enviarMensaje(userMessage, history = [], extraContext = {}) {
-    // Si hay una URL de backend válida y el modo demo está desactivado, intentar fetch real
     if (currentConfig.backendUrl && !currentConfig.demoMode) {
       try {
         const response = await fetch(`${currentConfig.backendUrl}/chat`, {
@@ -62,162 +54,289 @@ window.ForjaAPI = {
         });
 
         if (response.ok) {
-          const data = await response.json();
-          return data; // Debería cumplir la estructura { text, statusState, blocks: [...] }
-        } else {
-          console.warn('Backend Deno devolvió error status:', response.status, '- usando fallback simulado.');
+          return await response.json();
         }
       } catch (err) {
-        console.warn('No se pudo conectar al backend real:', err, '- activando modo demo local.');
+        console.warn('Backend no disponible, ejecutando motor demo:', err);
       }
     }
 
-    // MODO DEMO LOCAL SIMULADO (Reglas simples para flujo interactivo completo)
     return await responderModoDemo(userMessage, history, extraContext);
   }
 };
 
 /**
- * Motor local simulado que demuestra el flujo completo de construcción de apps en Forja
+ * Preguntas predeterminadas del Onboarding (1 al 8)
+ */
+const ONBOARDING_STEPS = [
+  {
+    step: 1,
+    id: 'rubro',
+    title: 'Tipo de negocio o rubro',
+    question: '1️⃣ **¿Para qué tipo de negocio o actividad es la app?**',
+    chips: ['Barbería / Salón', 'Colmado / Tienda / POS', 'Escuela / Cursos', 'Restaurante / Menú', 'Consultorio / Salud', 'Prefiero describirlo todo en un mensaje']
+  },
+  {
+    step: 2,
+    id: 'objetivo',
+    title: 'Objetivo principal',
+    question: '2️⃣ **¿Cuál es el objetivo principal y qué quieres automatizar?**',
+    chips: ['Reservar citas y agendas', 'Vender productos y carrito WhatsApp', 'Cobros, fiados e inventario', 'Gestión de estudiantes y notas', 'Atender clientes y mensajes']
+  },
+  {
+    step: 3,
+    id: 'usuarios',
+    title: 'Usuarios y roles',
+    question: '3️⃣ **¿Quiénes usarán la app y cuántos usuarios esperas?**',
+    chips: ['Solo yo (1 admin)', 'Equipo pequeño (2-5 personas)', 'Clientes + Admin (hasta 100 usuarios)', 'Público general (>500 usuarios)']
+  },
+  {
+    step: 4,
+    id: 'funciones',
+    title: 'Funciones imprescindibles',
+    question: '4️⃣ **¿Qué funciones imprescindibles debe incluir?** (Elige varias o escribe)',
+    chips: ['Calendario de citas', 'Catálogo con fotos', 'Inventario y alertas', 'Control de caja y fiados', 'Reportes y gráficos', 'Confirmación por WhatsApp', 'Listo con estas']
+  },
+  {
+    step: 5,
+    id: 'estilo',
+    title: 'Estilo y colores',
+    question: '5️⃣ **¿Cómo quieres que se vea la app?** (Estilo visual y colores)',
+    chips: ['Azul moderno y limpio', 'Oscuro VIP elegante', 'Verde eco fresco', 'Cálido y acogedor', 'Usar logo de mi marca']
+  },
+  {
+    step: 6,
+    id: 'integraciones',
+    title: 'Pagos, WhatsApp y notificaciones',
+    question: '6️⃣ **¿Necesitas integración con pagos, WhatsApp o notificaciones?**',
+    chips: ['WhatsApp directo + Notificaciones', 'Cobro con tarjeta y transferencia', 'Solo WhatsApp', 'Solo guardado local por ahora', 'Todas las anteriores']
+  },
+  {
+    step: 7,
+    id: 'idioma_moneda',
+    title: 'Idioma y moneda',
+    question: '7️⃣ **¿En qué país/moneda se utilizará?**',
+    chips: ['RD$ DOP (República Dominicana)', 'US$ USD (Estados Unidos)', '€ EUR (Europa)', 'Mex$ MXN (México)']
+  },
+  {
+    step: 8,
+    id: 'notas',
+    title: 'Notas adicionales',
+    question: '8️⃣ **¿Algo más que quieras agregar sobre tu proyecto antes de forjarlo?**',
+    chips: ['Todo claro, ¡forja la app!', 'Agregar módulo de clientes frecuentes', 'Sin notas adicionales']
+  }
+];
+
+/**
+ * Motor inteligente con flujo de entrevista de Onboarding y simulación
  */
 async function responderModoDemo(userMessage, history, extraContext) {
-  // Simular pequeña latencia natural del agente (400ms - 800ms)
-  await new Promise(resolve => setTimeout(resolve, 600));
+  await new Promise(resolve => setTimeout(resolve, 500));
 
   const msgLower = (userMessage || '').toLowerCase();
-  const contextType = extraContext.actionType || '';
+  const actionType = extraContext.actionType || '';
+  let onboarding = extraContext.onboardingState || { active: false, step: 0, brief: {} };
 
-  // CASO 1: Aprobación del Plan de Construcción
-  if (contextType === 'approve_plan' || msgLower.includes('aceptar') || msgLower.includes('dale pa') || msgLower.includes('construir')) {
-    const appTitle = extraContext.appName || 'App Barbería VIP';
+  // CASO A: Acción directa de Aceptar Brief -> Inicia construcción
+  if (actionType === 'accept_brief') {
+    const brief = extraContext.brief || onboarding.brief || {};
+    const appTitle = brief.rubro ? `App ${brief.rubro}` : 'App Personalizada PWA';
+
     return {
       statusState: 'trabajando',
-      statusText: `Armando tu app '${appTitle}'...`,
+      statusText: `Forjando '${appTitle}'...`,
+      onboardingComplete: true,
       blocks: [
         {
           type: 'text',
-          content: `¡Nítido! Manos a la obra. Ya arranqué a forjar la estructura de **${appTitle}**.`
+          content: `¡Nítido! Brief confirmado. Arranqué a forjar tu app **${appTitle}** basada en tus especificaciones exactas.`
         },
         {
           type: 'project_card',
           id: 'proj_' + Date.now(),
           name: appTitle,
-          status: 'En progreso',
-          progress: 25,
-          updated: 'Ahora mismo'
+          status: 'En construcción',
+          progress: 30,
+          updated: 'Ahora mismo',
+          brief: brief
         },
         {
           type: 'step_list',
-          id: 'steps_1',
+          id: 'steps_build',
           steps: [
-            { id: 1, title: 'Generando maquetación PWA responsiva', status: 'done' },
-            { id: 2, title: 'Configurando persistencia con LocalStorage', status: 'active' },
-            { id: 3, title: 'Instalando motor de reservación de citas', status: 'pending' },
-            { id: 4, title: 'Desplegando en servidor en vivo (GitHub Pages)', status: 'pending' }
+            { id: 1, title: 'Generando maquetación responsiva PWA', status: 'done' },
+            { id: 2, title: `Configurando reglas para ${brief.rubro || 'negocio'}`, status: 'active' },
+            { id: 3, title: `Módulo de funciones: ${(brief.funciones || []).slice(0, 2).join(', ') || 'General'}`, status: 'pending' },
+            { id: 4, title: 'Despliegue y enlace listo', status: 'pending' }
           ]
         }
       ]
     };
   }
 
-  // CASO 2: Rechazo o ajuste del plan
-  if (contextType === 'reject_plan' || msgLower.includes('rechazar') || msgLower.includes('cambiar algo')) {
+  // CASO B: Usuario pide ajustar el brief
+  if (actionType === 'adjust_brief') {
     return {
       statusState: 'reposo',
-      statusText: 'Esperando tus ajustes...',
+      statusText: 'Ajustando el Brief...',
+      onboardingState: onboarding,
       blocks: [
         {
           type: 'text',
-          content: 'Tranquilo, sin estrés. Dime qué detalle o función quieres cambiar y lo ajustamos de una vez antes de empezar.'
+          content: 'Tranquilo, mi hermano. ¿Qué dato o detalle del brief quieres cambiar? Dime y lo actualizo de una vez.'
         },
         {
           type: 'quick_chips',
-          options: ['Cambiar colores de marca', 'Agregar módulo de productos', 'Simplificar formulario', 'Empezar de cero']
+          options: ['Cambiar rubro/negocio', 'Agregar más funciones', 'Cambiar colores/estilo', 'Cambiar moneda', 'Ver resumen de nuevo']
         }
       ]
     };
   }
 
-  // CASO 3: El usuario pide una app nueva o selecciona una idea
-  if (msgLower.includes('barberia') || msgLower.includes('barbería') || msgLower.includes('citas') ||
-      msgLower.includes('colmado') || msgLower.includes('inventario') || msgLower.includes('gastos') ||
-      msgLower.includes('tienda') || msgLower.includes('quiero una app') || msgLower.includes('crear app') ||
-      msgLower.includes('construir app') || msgLower.includes('idea')) {
-
-    let appName = 'Barbería El Boli';
-    if (msgLower.includes('colmado')) appName = 'Colmado Express';
-    if (msgLower.includes('gastos')) appName = 'Gestor de Gastos Quisqueya';
-    if (msgLower.includes('tienda')) appName = 'Tienda Instagram RD';
-
+  // CASO C: Opción 'Prefiero describirlo todo en un mensaje'
+  if (msgLower.includes('describirlo todo en un mensaje') || msgLower.includes('prefiero describir')) {
+    onboarding.active = true;
+    onboarding.mode = 'free_description';
     return {
       statusState: 'pensando',
-      statusText: 'Analizando requisitos...',
+      statusText: 'Escuchando tu idea...',
+      onboardingState: onboarding,
       blocks: [
         {
           type: 'text',
-          content: `¡Dime a ver! Me parece excelente idea armar una **${appName}**. Para que quede dura como te gusta, respóndeme estas dos cosas:`
-        },
+          content: '¡Perfecto! Escribe todo en un solo mensaje: para qué es la app, quiénes la usaran, qué funciones quieres y cómo quieres que se vea. Yo extraeré todo de ahí.'
+        }
+      ]
+    };
+  }
+
+  // CASO D: Si el usuario envió descripción completa libre
+  if (onboarding.mode === 'free_description') {
+    // Extraer datos por palabras clave
+    const brief = onboarding.brief || {};
+    if (msgLower.includes('barber')) brief.rubro = 'Barbería VIP';
+    else if (msgLower.includes('colmado') || msgLower.includes('tienda')) brief.rubro = 'Tienda / Colmado';
+    else if (msgLower.includes('escuela') || msgLower.includes('colegio')) brief.rubro = 'Escuela';
+    else brief.rubro = 'Negocio General';
+
+    brief.objetivo = userMessage.substring(0, 80);
+    brief.usuarios = msgLower.includes('cliente') ? 'Clientes + Admin' : 'Equipo Interno';
+    brief.funciones = ['Gestión principal', 'WhatsApp', 'Panel Admin'];
+    brief.estilo = msgLower.includes('oscuro') ? 'Oscuro VIP' : 'Azul Moderno';
+    brief.integraciones = 'WhatsApp y reportes';
+    brief.idioma_moneda = 'RD$ DOP';
+    brief.notas = 'Extraído de mensaje libre';
+
+    onboarding.brief = brief;
+    onboarding.active = false;
+
+    return {
+      statusState: 'pensando',
+      statusText: 'Brief extraído',
+      onboardingState: onboarding,
+      blocks: [
         {
           type: 'text',
-          content: `1️⃣ **¿Cómo prefieres gestionar la información?**\n2️⃣ **¿Qué funciones principales le metemos?**`
+          content: '¡Entendido perfectamente! Extraje todos los detalles de tu mensaje. Aquí tienes el **Resumen del Brief** pa\' confirmar:'
+        },
+        {
+          type: 'brief_card',
+          brief: brief
+        }
+      ]
+    };
+  }
+
+  // CASO E: Proceso paso a paso del Onboarding (Pasos 1 al 8)
+  if (onboarding.active || msgLower.includes('crear app') || msgLower.includes('construir app') || msgLower.includes('nueva app') || msgLower.includes('barberia') || msgLower.includes('tienda') || msgLower.includes('colmado')) {
+    
+    if (!onboarding.active) {
+      onboarding.active = true;
+      onboarding.step = 1;
+      onboarding.brief = {};
+    } else {
+      // Guardar respuesta del paso anterior
+      const currentStepObj = ONBOARDING_STEPS.find(s => s.step === onboarding.step);
+      if (currentStepObj) {
+        if (currentStepObj.id === 'funciones' && onboarding.brief.funciones) {
+          if (!userMessage.includes('Listo')) {
+            onboarding.brief.funciones.push(userMessage);
+          }
+        } else {
+          onboarding.brief[currentStepObj.id] = userMessage;
+        }
+      }
+
+      // Si no es multi-selección o tocó 'Listo', avanzar de paso
+      if (currentStepObj?.id !== 'funciones' || userMessage.includes('Listo')) {
+        onboarding.step += 1;
+      }
+    }
+
+    // Adaptación dinámica por rubro
+    if (onboarding.brief.rubro) {
+      const rLower = onboarding.brief.rubro.toLowerCase();
+      if (rLower.includes('barber')) {
+        ONBOARDING_STEPS[3].chips = ['Citas y agenda', 'Barberos y turnos', 'Galería de cortes', 'Recordatorio WhatsApp', 'Listo con estas'];
+      } else if (rLower.includes('colmado') || rLower.includes('tienda')) {
+        ONBOARDING_STEPS[3].chips = ['Inventario y Stock', 'Fiados y cuentas', 'POS / Ventas rápida', 'Carrito WhatsApp', 'Listo con estas'];
+      }
+    }
+
+    // Si ya completamos todos los pasos (paso > 8)
+    if (onboarding.step > ONBOARDING_STEPS.length) {
+      onboarding.active = false;
+      return {
+        statusState: 'pensando',
+        statusText: 'Entrevista completada',
+        onboardingState: onboarding,
+        blocks: [
+          {
+            type: 'text',
+            content: '¡Excelente! Terminamos la entrevista. Aquí tienes el **RESUMEN DEL BRIEF** técnico para tu app:'
+          },
+          {
+            type: 'brief_card',
+            brief: onboarding.brief
+          }
+        ]
+      };
+    }
+
+    // Retornar pregunta actual del paso
+    const nextStepObj = ONBOARDING_STEPS.find(s => s.step === onboarding.step);
+    return {
+      statusState: 'pensando',
+      statusText: `Entrevista: Paso ${nextStepObj.step} de ${ONBOARDING_STEPS.length}`,
+      onboardingState: onboarding,
+      blocks: [
+        {
+          type: 'text',
+          content: nextStepObj.question
         },
         {
           type: 'quick_chips',
-          options: [
-            'Citas + Registro de Clientes',
-            'Catálogo con Carrito WhatsApp',
-            'Control de Ventas y Fiado',
-            'Suscripciones y Pagos en línea'
-          ]
+          options: nextStepObj.chips
         }
       ]
     };
   }
 
-  // CASO 4: Selección de opción rápida (Chip) -> Entrega el Plan de Aprobación
-  if (contextType === 'select_option' || msgLower.includes('citas') || msgLower.includes('catálogo') || msgLower.includes('control') || msgLower.includes('suscripciones')) {
-    const selectedOption = userMessage;
-    return {
-      statusState: 'pensando',
-      statusText: 'Diseñando el plan de la app...',
-      blocks: [
-        {
-          type: 'text',
-          content: `¡Anotado! Opción seleccionada: **${selectedOption}**.\nEstructuré el plan técnico para la app. Revisa los detalles y confirma para forjarla:`
-        },
-        {
-          type: 'approval_card',
-          id: 'appr_plan_01',
-          appName: 'Barbería VIP PWA',
-          title: 'Plan de Construcción: Barbería VIP PWA',
-          description: 'Aplicación PWA ultra rápida con módulo de agenda de citas, gestión de servicios y contacto directo por WhatsApp.',
-          details: [
-            '📱 Layout PWA listo para instalar en celular o PC',
-            '📅 Calendario interactivo de citas por barbero',
-            '💾 Guardado local en el navegador (LocalStorage)',
-            '🚀 Despliegue automático en GitHub Pages'
-          ],
-          status: 'pending'
-        }
-      ]
-    };
-  }
-
-  // CASO 5: Saludo o mensaje general
+  // CASO F: Saludo o ayuda general
   return {
     statusState: 'reposo',
     statusText: 'Listo pa\' construir',
     blocks: [
       {
         type: 'text',
-        content: `¡Dime a ver, mi hermano! Soy **${currentConfig.agentName}**, tu compañero de código. Puedo armarte una app completa desde cero en minutos.\n\nPrueba pidiéndome algo como:\n• *"Quiero una app para mi barbería"* \n• *"Construye un control de inventario para mi colmado"* \n• O selecciona una idea sugerida en la pestaña **Ideas**.`
+        content: `¡Dime a ver! Soy **${currentConfig.agentName}**, tu agente creador de aplicaciones.\n\nPara empezar a forjar una app, ejecutamos primero una breve entrevista guiada para asegurarnos de que quede como la deseas.`
       },
       {
         type: 'quick_chips',
         options: [
-          'Quiero una app para mi barbería',
+          'Quiero construir una app para mi barbería',
           'App de Inventario para Colmado',
-          'Gestor de Cuentas y Gastos',
+          'Prefiero describirlo todo en un mensaje',
           'Ver sugerencias en Ideas'
         ]
       }
