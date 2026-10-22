@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es-DO">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Barbería VIP — App Creada por Forja</title>
+  <style>
+    :root {
+      --primary: #0866FF;
+      --bg: #0F172A;
+      --card-bg: #1E293B;
+      --text: #F8FAFC;
+      --accent: #FFD700;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .badge { background: rgba(8, 102, 255, 0.2); color: #38BDF8; border: 1px solid #38BDF8; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 16px; }
+    .container { max-width: 420px; width: 100%; background: var(--card-bg); border-radius: 24px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }
+    h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; color: #fff; }
+    p { color: #94A3B8; font-size: 14px; margin-bottom: 24px; }
+    .service-card { background: #0F172A; border-radius: 16px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; text-align: left; }
+    .service-name { font-weight: 700; font-size: 15px; }
+    .service-price { color: var(--accent); font-weight: 700; }
+    .btn { width: 100%; padding: 14px; background: var(--primary); color: #fff; border: none; border-radius: 14px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 12px; }
+    .btn:hover { background: #0052D6; }
+    .footer-note { font-size: 12px; color: #64748B; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <span class="badge">⚡ FORJADO CON FORJA PWA</span>
+  <div class="container">
+    <h1>💈 Barbería VIP</h1>
+    <p>Reserva tu turno en línea fácil y rápido sin hacer fila.</p>
+
+    <div class="service-card">
+      <div>
+        <div class="service-name">Corte Recortado + Barba</div>
+        <div style="font-size:12px; color:#64748B;">Incluye toalla caliente y perfilado</div>
+      </div>
+      <div class="service-price">RD$ 500</div>
+    </div>
+
+    <div class="service-card">
+      <div>
+        <div class="service-name">Corte Adulto / Ejecutivo</div>
+        <div style="font-size:12px; color:#64748B;">Lavado y secado incluido</div>
+      </div>
+      <div class="service-price">RD$ 400</div>
+    </div>
+
+    <div class="service-card">
+      <div>
+        <div class="service-name">Perfilado de Cerquillo y Barba</div>
+        <div style="font-size:12px; color:#64748B;">Acabado con navaja nítido</div>
+      </div>
+      <div class="service-price">RD$ 250</div>
+    </div>
+
+    <button class="btn" onclick="alert('¡Cita agendada con éxito! Recibirás confirmación por WhatsApp.')">📅 Reservar Cita Ahora</button>
+    
+    <div class="footer-note">Aplicación PWA creada bajo demanda por Forja.</div>
+  </div>
+</body>
+</html>
