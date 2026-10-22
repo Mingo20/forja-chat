@@ -1,0 +1,25 @@
+{
+  "name": "Forja - Agente Creador de Apps",
+  "short_name": "Forja",
+  "description": "Agente conversacional inteligente para construir aplicaciones completas bajo demanda hablando en chat.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F4F6F9",
+  "theme_color": "#0866FF",
+  "lang": "es-DO",
+  "icons": [
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
